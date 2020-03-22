@@ -1,12 +1,12 @@
 mod cartridge;
-mod instruction;
 mod disassembler;
 mod error;
+mod instruction;
 
 use cartridge::Cartridge;
-use instruction::Instruction;
 use disassembler::Disassembler;
 use error::AnalyzerError;
+use instruction::Instruction;
 
 #[derive(Debug)]
 pub struct Analyzer<'a> {

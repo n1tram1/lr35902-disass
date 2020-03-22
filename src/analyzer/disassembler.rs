@@ -1,5 +1,5 @@
-use super::instruction::Instruction;
 use super::error::AnalyzerError;
+use super::instruction::Instruction;
 
 pub struct Disassembler;
 

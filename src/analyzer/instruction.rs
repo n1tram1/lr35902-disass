@@ -46,7 +46,7 @@ impl Register {
 
 #[derive(Debug)]
 enum Operand {
-    Data8(u8), 
+    Data8(u8),
     Data16(u16),
     Addr8(u8),
     Addr16(u16),
@@ -73,8 +73,18 @@ pub struct Instruction {
 }
 
 impl Instruction {
-    fn new(opcode: u8, mnemonic: Mnemonic, lhs: Option<Operand>, rhs: Option<Operand>) -> Instruction {
-        Instruction { opcode, mnemonic, lhs, rhs, }
+    fn new(
+        opcode: u8,
+        mnemonic: Mnemonic,
+        lhs: Option<Operand>,
+        rhs: Option<Operand>,
+    ) -> Instruction {
+        Instruction {
+            opcode,
+            mnemonic,
+            lhs,
+            rhs,
+        }
     }
 
     pub fn from_slice(bytes: &[u8]) -> Result<Instruction, AnalyzerError> {
@@ -86,9 +96,14 @@ impl Instruction {
         let opcode = bytes[0];
         let inst = match opcode {
             0x00 => Instruction::new(opcode, Mnemonic::NOP, None, None),
-            0x01 => Instruction::new(opcode, Mnemonic::LD, Some(Operand::Reg(Register::BC)), Some(Operand::Data16(u16::from_le_bytes([bytes[1], bytes[2]])))),
+            0x01 => Instruction::new(
+                opcode,
+                Mnemonic::LD,
+                Some(Operand::Reg(Register::BC)),
+                Some(Operand::Data16(u16::from_le_bytes([bytes[1], bytes[2]]))),
+            ),
             // 0x02 => instruction!(opcode, Mnemonic::LD, Operand::DerefReg(Register::BC), Operand::Reg(Register::A)),
-            0x10 => Instruction::new(opcode, Mnemonic::STOP, Some(Operand::Data8(0)), None) ,
+            0x10 => Instruction::new(opcode, Mnemonic::STOP, Some(Operand::Data8(0)), None),
             _ => return Err(AnalyzerError::InvalidOpcode(opcode)),
         };
 

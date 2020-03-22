@@ -12,7 +12,7 @@ impl std::fmt::Display for AnalyzerError {
             Self::InvalidCartridge(ref e) => {
                 write!(f, "invalid cartridge, got: ")?;
                 e.fmt(f)
-            },
+            }
         }
     }
 }
