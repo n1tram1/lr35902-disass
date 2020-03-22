@@ -15,14 +15,16 @@ pub struct Analyzer<'a> {
 }
 
 impl<'a> Analyzer<'a> {
-    pub fn from_path(path: &std::path::Path) -> Result<Analyzer, std::io::Error> {
+    pub fn from_path(path: &std::path::Path) -> Result<Analyzer, AnalyzerError> {
         Ok(Analyzer {
             path,
             cartridge: Cartridge::from_path(path)?,
         })
     }
 
-    pub fn disassemble(&self) -> Vec<Instruction> {
-        Disassembler::disassemble(self.cartridge.get_bytes())
+    pub fn disassemble(&self) -> Result<Vec<Instruction>, AnalyzerError> {
+        let disassembly = Disassembler::disassemble(self.cartridge.get_bytes())?;
+
+        Ok(disassembly)
     }
 }
