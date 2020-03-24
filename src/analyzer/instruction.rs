@@ -4,13 +4,17 @@ use super::error::AnalyzerError;
 enum Mnemonic {
     NOP,
     STOP,
-    LD,
-    LDI,
+    LD, /* Load */
+    LDIL, /* Load lhs-increment */
+    LDDL, /* Load lhs-decrement */
+    LDIR, /* Load rhs-increment */
+    LDDR, /* Load rhs-decrement */
     JR,
     JP,
     JRNZ,
     JRZ,
     JRNC,
+    JRC,
     ADD,
     SUB,
     INC,
@@ -27,6 +31,8 @@ enum Mnemonic {
     RR,
     DA,
     CPL,
+    SCF,
+    CCF,
 }
 
 #[derive(Debug)]
@@ -344,8 +350,8 @@ impl Instruction {
             0x22 => Instruction {
                 size: 1,
                 cycles: 8,
-                mnemonic: Mnemonic::LDI,
-                lhs: Some(Operand::Reg(Register::HL)),
+                mnemonic: Mnemonic::LDIL,
+                lhs: Some(Operand::DerefReg(Register::HL)),
                 rhs: Some(Operand::Reg(Register::A)),
             },
             0x23 => Instruction {
@@ -400,8 +406,8 @@ impl Instruction {
             0x2A => Instruction {
                 size: 1,
                 cycles: 8,
-                mnemonic: Mnemonic::LDI,
-                lhs: Some(Operand::Reg(Register::A)),
+                mnemonic: Mnemonic::LDIR,
+                lhs: Some(Operand::DerefReg(Register::A)),
                 rhs: Some(Operand::Reg(Register::HL)),
             },
             0x2B => Instruction {
@@ -437,6 +443,118 @@ impl Instruction {
                 cycles: 4,
                 mnemonic: Mnemonic::CPL,
                 lhs: Some(Operand::Reg(Register::A)),
+                rhs: None,
+            },
+            0x30 => Instruction {
+                size: 2,
+                cycles: 0, /* Cycle depends on branch taken (12/8 true/false). */
+                mnemonic: Mnemonic::JRNC,
+                lhs: Some(Operand::Rel8(Instruction::read_imm8(bytes)?)),
+                rhs: None,
+            },
+            0x31 => Instruction {
+                size: 3,
+                cycles: 12,
+                mnemonic: Mnemonic::LD,
+                lhs: Some(Operand::Reg(Register::SP)),
+                rhs: Some(Operand::Imm16(Instruction::read_imm16(bytes)?)),
+            },
+            0x32 => Instruction {
+                size: 1,
+                cycles: 8,
+                mnemonic: Mnemonic::LDDL,
+                lhs: Some(Operand::DerefReg(Register::HL)),
+                rhs: Some(Operand::Reg(Register::A)),
+            },
+            0x33 => Instruction {
+                size: 1,
+                cycles: 8,
+                mnemonic: Mnemonic::INC,
+                lhs: Some(Operand::Reg(Register::SP)),
+                rhs: None,
+            },
+            0x34 => Instruction {
+                size: 1,
+                cycles: 12,
+                mnemonic: Mnemonic::INC,
+                lhs: Some(Operand::DerefReg(Register::HL)),
+                rhs: None,
+            },
+            0x35 => Instruction {
+                size: 1,
+                cycles: 12,
+                mnemonic: Mnemonic::DEC,
+                lhs: Some(Operand::DerefReg(Register::HL)),
+                rhs: None,
+            },
+            0x36 => Instruction {
+                size: 2,
+                cycles: 12,
+                mnemonic: Mnemonic::LD,
+                lhs: Some(Operand::DerefReg(Register::HL)),
+                rhs: Some(Operand::Imm8(Instruction::read_imm8(bytes)?)),
+            },
+            0x37 => Instruction {
+                size: 1,
+                cycles: 4,
+                mnemonic: Mnemonic::SCF,
+                lhs: None,
+                rhs: None,
+            },
+            0x38 => Instruction {
+                size: 2,
+                cycles: 0, /* Cycle depends on branch taken (12/8 true/false). */
+                mnemonic: Mnemonic::JRC,
+                lhs: Some(Operand::Imm8(Instruction::read_imm8(bytes)?)),
+                rhs: None,
+            },
+            0x39 => Instruction {
+                size: 1,
+                cycles: 8,
+                mnemonic: Mnemonic::ADD,
+                lhs: Some(Operand::Reg(Register::HL)),
+                rhs: Some(Operand::Reg(Register::SP)),
+            },
+            0x3A => Instruction {
+                size: 1,
+                cycles: 8,
+                mnemonic: Mnemonic::LDDR,
+                lhs: Some(Operand::Reg(Register::A)),
+                rhs: Some(Operand::DerefReg(Register::HL)),
+            },
+            0x3B => Instruction {
+                size: 1,
+                cycles: 8,
+                mnemonic: Mnemonic::DEC,
+                lhs: Some(Operand::Reg(Register::SP)),
+                rhs: None,
+            },
+            0x3C => Instruction {
+                size: 1,
+                cycles: 4,
+                mnemonic: Mnemonic::INC,
+                lhs: Some(Operand::Reg(Register::A)),
+                rhs: None,
+            },
+            0x3D => Instruction {
+                size: 1,
+                cycles: 4,
+                mnemonic: Mnemonic::DEC,
+                lhs: Some(Operand::Reg(Register::A)),
+                rhs: None,
+            },
+            0x3E => Instruction {
+                size: 2,
+                cycles: 8,
+                mnemonic: Mnemonic::LD,
+                lhs: Some(Operand::Reg(Register::A)),
+                rhs: Some(Operand::Imm8(Instruction::read_imm8(bytes)?)),
+            },
+            0x3F => Instruction {
+                size: 1,
+                cycles: 4,
+                mnemonic: Mnemonic::CCF,
+                lhs: None,
                 rhs: None,
             },
             _ => return Err(AnalyzerError::InvalidOpcode(opcode)),
