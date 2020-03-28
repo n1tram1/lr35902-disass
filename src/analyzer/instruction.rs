@@ -15,6 +15,10 @@ enum Mnemonic {
     JRZ,
     JRNC,
     JRC,
+    JPNZ,
+    JPNC,
+    JPZ,
+    JPC,
     ADD,
     ADC,
     SUB,
@@ -28,6 +32,7 @@ enum Mnemonic {
     POP,
     CALL,
     RET,
+    RETI,
     RLC,
     RRC,
     RL,
@@ -38,6 +43,8 @@ enum Mnemonic {
     CCF,
     HALT,
     CP,
+    RST,
+    CB,
 }
 
 #[derive(Debug)]
@@ -61,13 +68,12 @@ enum Register {
     SP,
 }
 
-impl Register {
-    pub fn size(&self) -> usize {
-        match *self {
-            Self::AF | Self::BC | Self::DE | Self::HL => 2,
-            _ => 1,
-        }
-    }
+#[derive(Debug)]
+enum Condition {
+    Z,
+    NZ,
+    C,
+    NC,
 }
 
 #[derive(Debug)]
@@ -81,16 +87,7 @@ enum Operand {
     Rel8(u8),
     Reg(Register),
     DerefReg(Register),
-}
-
-impl Operand {
-    pub fn size(&self) -> usize {
-        match self {
-            Self::Reg(r) | Self::DerefReg(r) => r.size(),
-            Self::Imm16(_) | Self::Addr16(_) => 2,
-            _ => 1,
-        }
-    }
+    Cond(Condition),
 }
 
 pub struct Instruction {
@@ -108,6 +105,10 @@ impl Instruction {
         }
 
         Instruction::decode(bytes)
+    }
+
+    pub fn size(&self) -> usize {
+        self.size
     }
 
     fn decode(bytes: &[u8]) -> Result<Instruction, AnalyzerError> {
@@ -1472,6 +1473,209 @@ impl Instruction {
                 lhs: Some(Operand::Reg(Register::A)),
                 rhs: None,
             },
+            0xC0 => Instruction {
+                size: 1,
+                cycles: 0, /* Cycle depends on branch taken (20/8 true/false). */
+                mnemonic: Mnemonic::RET,
+                lhs: Some(Operand::Cond(Condition::NZ)),
+                rhs: None
+            },
+            0xC1 => Instruction {
+                size: 1,
+                cycles: 12,
+                mnemonic: Mnemonic::POP,
+                lhs: Some(Operand::Reg(Register::BC)),
+                rhs: None,
+            },
+            0xC2 => Instruction {
+                size: 3,
+                cycles: 0, /* Cycle depends on branch taken (16/12 true/false). */
+                mnemonic: Mnemonic::JPNZ,
+                lhs: Some(Operand::Addr16(Instruction::read_imm16(bytes)?)),
+                rhs: None,
+            },
+            0xC3 => Instruction {
+                size: 3,
+                cycles: 16,
+                mnemonic: Mnemonic::JP,
+                lhs: Some(Operand::Addr16(Instruction::read_imm16(bytes)?)),
+                rhs: None,
+            },
+            0xC4 => Instruction {
+                size: 3,
+                cycles: 0, /* Cycle depends on branch taken (24/12 true/false). */
+                mnemonic: Mnemonic::CALL,
+                lhs: Some(Operand::Cond(Condition::NZ)),
+                rhs: Some(Operand::Addr16(Instruction::read_imm16(bytes)?)),
+            },
+            0xC5 => Instruction {
+                size: 1,
+                cycles: 16,
+                mnemonic: Mnemonic::PUSH,
+                lhs: Some(Operand::Reg(Register::BC)),
+                rhs: None,
+            },
+            0xC6 => Instruction {
+                size: 2,
+                cycles: 8,
+                mnemonic: Mnemonic::ADD,
+                lhs: Some(Operand::Reg(Register::A)),
+                rhs: Some(Operand::Imm8(Instruction::read_imm8(bytes)?)),
+            },
+            0xC7 => Instruction {
+                size: 1,
+                cycles: 16,
+                mnemonic: Mnemonic::RST,
+                lhs: Some(Operand::Imm8(0x00)),
+                rhs: None,
+            },
+            0xC8 => Instruction {
+                size: 1,
+                cycles: 0, /* Cycle depends on branch taken (20/8 true/false). */
+                mnemonic: Mnemonic::RET,
+                lhs: Some(Operand::Cond(Condition::Z)),
+                rhs: None,
+            },
+            0xC9 => Instruction {
+                size: 1,
+                cycles: 16,
+                mnemonic: Mnemonic::RET,
+                lhs: None,
+                rhs: None,
+            },
+            0xCA => Instruction {
+                size: 3,
+                cycles: 0, /* Cycle depends on branch taken (16/12 true/false). */
+                mnemonic: Mnemonic::JPZ,
+                lhs: Some(Operand::Addr16(Instruction::read_imm16(bytes)?)),
+                rhs: None,
+            },
+            0xCB => Instruction {
+                size: 1,
+                cycles: 4,
+                mnemonic: Mnemonic::CB,
+                lhs: None,
+                rhs: None,
+            },
+            0xCC => Instruction {
+                size: 3,
+                cycles: 0, /* Cycle depends on branch taken (24/12 true/false). */
+                mnemonic: Mnemonic::CALL,
+                lhs: Some(Operand::Cond(Condition::Z)),
+                rhs: Some(Operand::Addr16(Instruction::read_imm16(bytes)?)),
+            },
+            0xCD => Instruction {
+                size: 3,
+                cycles: 24,
+                mnemonic: Mnemonic::CALL,
+                lhs: Some(Operand::Addr16(Instruction::read_imm16(bytes)?)),
+                rhs: None,
+            },
+            0xCE => Instruction {
+                size: 2,
+                cycles: 8,
+                mnemonic: Mnemonic::ADC,
+                lhs: Some(Operand::Reg(Register::A)),
+                rhs: Some(Operand::Imm8(Instruction::read_imm8(bytes)?)),
+            },
+            0xCF => Instruction {
+                size: 1,
+                cycles: 16,
+                mnemonic: Mnemonic::RST,
+                lhs: Some(Operand::Imm8(0x08)),
+                rhs: None,
+            },
+            0xD0 => Instruction {
+                size: 1,
+                cycles: 0, /* Cycle depends on branch taken (20/8 true/false). */
+                mnemonic: Mnemonic::RET,
+                lhs: Some(Operand::Cond(Condition::NC)),
+                rhs: None,
+            },
+            0xD1 => Instruction {
+                size: 1,
+                cycles: 12,
+                mnemonic: Mnemonic::POP,
+                lhs: Some(Operand::Reg(Register::DE)),
+                rhs: None,
+            },
+            0xD2 => Instruction {
+                size: 3,
+                cycles: 0, /* Cycle depends on branch taken (16/12 true/false). */
+                mnemonic: Mnemonic::JPNC,
+                lhs: Some(Operand::Imm16(Instruction::read_imm16(bytes)?)),
+                rhs: None,
+            },
+            0xD4 => Instruction {
+                size: 3,
+                cycles: 0, /* Cycle depends on branch taken (24/12 true/false). */
+                mnemonic: Mnemonic::CALL,
+                lhs: Some(Operand::Cond(Condition::NC)),
+                rhs: Some(Operand::Addr16(Instruction::read_imm16(bytes)?)),
+            },
+            0xD5 => Instruction {
+                size: 1,
+                cycles: 16,
+                mnemonic: Mnemonic::PUSH,
+                lhs: Some(Operand::Reg(Register::DE)),
+                rhs: None,
+            },
+            0xD6 => Instruction {
+                size: 2,
+                cycles: 8,
+                mnemonic: Mnemonic::SUB,
+                lhs: Some(Operand::Imm8(Instruction::read_imm8(bytes)?)),
+                rhs: None,
+            },
+            0xD7 => Instruction {
+                size: 1,
+                cycles: 16,
+                mnemonic: Mnemonic::RST,
+                lhs: Some(Operand::Imm8(0x10)),
+                rhs: None,
+            },
+            0xD8 => Instruction {
+                size: 1,
+                cycles: 0, /* Cycle depends on branch taken (20/8 true/false). */
+                mnemonic: Mnemonic::RET,
+                lhs: Some(Operand::Reg(Register::C)),
+                rhs: None,
+            },
+            0xD9 => Instruction {
+                size: 1,
+                cycles: 16,
+                mnemonic: Mnemonic::RETI,
+                lhs: None,
+                rhs: None,
+            },
+            0xDA => Instruction {
+                size: 3,
+                cycles: 0, /* Cycle depends on branch taken (16/12 true/false). */
+                mnemonic: Mnemonic::JPC,
+                lhs: Some(Operand::Addr16(Instruction::read_imm16(bytes)?)),
+                rhs: None,
+            },
+            0xDC => Instruction {
+                size: 3,
+                cycles: 0, /* Cycle depends on branch taken (24/12 true/false). */
+                mnemonic: Mnemonic::CALL,
+                lhs: Some(Operand::Cond(Condition::C)),
+                rhs: Some(Operand::Addr16(Instruction::read_imm16(bytes)?)),
+            },
+           0xDE => Instruction {
+               size: 2,
+               cycles: 8,
+               mnemonic: Mnemonic::SBC,
+               lhs: Some(Operand::Reg(Register::A)),
+               rhs: Some(Operand::Imm8(Instruction::read_imm8(bytes)?)),
+           },
+           0xDF => Instruction {
+               size: 1,
+               cycles: 16,
+               mnemonic: Mnemonic::RST,
+               lhs: Some(Operand::Imm8(0x18)),
+               rhs: None,
+           },
             _ => return Err(AnalyzerError::InvalidOpcode(opcode)),
         };
 
